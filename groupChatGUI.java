@@ -68,6 +68,8 @@ public class groupChatGUI {
                        PrintStream out=new PrintStream(connect2Server.getOut(),
                                true,"UTF-8");
                        out.println(CommUtil.object2Json(messageVO));
+                       readFromServer.append(myName+"说:"+str+"\n");
+                
                        send2Server.setText("");
                    } catch (UnsupportedEncodingException e1) {
                        e1.printStackTrace();
