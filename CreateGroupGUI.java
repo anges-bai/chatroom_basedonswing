@@ -86,7 +86,7 @@ public class CreateGroupGUI {
                 frame.setVisible(false);
                 //返回好友列表界面，展示当前群名
                 friendList.addGroupInfo(groupName,selectedFriends);
-                friendList.reloadFriendList();
+                friendList.reloadGroupList();
             }
         });
     }
