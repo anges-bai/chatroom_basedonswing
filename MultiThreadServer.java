@@ -8,10 +8,7 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Scanner;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -29,7 +26,12 @@ public class MultiThreadServer {
     }
     //服务端缓存所有连接的客户端对象
     private static Map<String,Socket> clients
-            =new ConcurrentHashMap<>();//线程安全问题，用户名重复，谁先来谁先
+            =new ConcurrentHashMap<>();
+    //缓存所有群名称以及群中的成员姓名
+    private  static Map<String,Set<String>> groupInfo=new ConcurrentHashMap<>();
+
+
+    //线程安全问题，用户名重复，谁先来谁先
     //服务端具体处理客户端请求的任务
     private static class ExecuteClient implements Runnable{
         private Socket client;
@@ -79,6 +81,50 @@ public class MultiThreadServer {
                         System.out.println(userName+"上线了！");
                         clients.put(userName,client);
                         System.out.println("当前聊天室在线人数为:"+clients.size());
+                    }
+                    else if (msgFromClient.getType().equals(2)){
+                        //私聊信息
+                        String friendName=msgFromClient.getTo();
+                        Socket socket=clients.get(friendName);
+                        try {
+                            PrintStream out=new PrintStream(socket.getOutputStream(),
+                                    true,"UTF-8");
+                            MessageVO msg2Client=new MessageVO();
+                            msg2Client.setType(2);
+                            msg2Client.setContent(msgFromClient.getContent());
+                            out.println(CommUtil.object2Json(msg2Client));
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }else if (msgFromClient.getType().equals(3)){
+                        //注册群消息
+                        String groupName=msgFromClient.getContent();
+                        Set<String> friends=(Set<String>)CommUtil.json2Object(msgFromClient.getTo(),
+                                Set.class);
+                        groupInfo.put(groupName,friends);
+                        System.out.println("注册群成功，当前共有"+groupInfo.size()+"个群");
+                    }else if (msgFromClient.getType().equals(4)){
+                        //content:senderName-msg
+                        //to:groupName
+                        String groupName=msgFromClient.getTo();
+                        Set<String> friends=groupInfo.get(groupName);
+                        //将群聊信息转发到相应客户端
+                        Iterator<String> iterator=friends.iterator();
+                        while (iterator.hasNext()){
+                            String clientName=iterator.next();
+                            Socket client=clients.get(clientName);
+                            try {
+                                PrintStream out=new PrintStream(client.getOutputStream(),
+                                        true,"UTF-8");
+                                MessageVO messageVO=new MessageVO();
+                                messageVO.setType(4);
+                                messageVO.setContent(msgFromClient.getContent());
+                                messageVO.setTo(groupInfo+"-"+CommUtil.object2Json(friends));
+                                out.println(CommUtil.object2Json(messageVO));
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
                     }
                 }
             }
